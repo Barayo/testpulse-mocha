@@ -51,14 +51,16 @@ jobs:
         # otherwise attempt (and harmlessly fail) a republish of the
         # current version on every push with no releasable commits.
         #
-        # NOTE: the very first publish of a brand-new npm package cannot
-        # be bootstrapped via OIDC trusted publishing at all -- npm's
-        # trusted-publishing configuration is set up on an EXISTING
-        # package's settings page, so it requires the package to already
-        # exist on the registry. The first release of this package needs
+        # NOTE: the very first publish of a brand-new npm package needs
         # one manual `npm publish` (with a maintainer's own npm
-        # credentials) before this OIDC-based step can take over for
-        # every release after that. This is a real, confirmed npm
+        # credentials) before this OIDC-based step can take over --
+        # confirmed via testpulse-jest's own registry history (its 0.1.0
+        # was published manually outside CI; only 1.0.1 onward went
+        # through this exact OIDC step). npm's Trusted Publisher is
+        # configured on a package's own settings page
+        # (npmjs.com/package/<name>/access), which 404s for a package
+        # that doesn't exist yet, so there's no way to pre-register OIDC
+        # trust before that first manual publish. This is a real npm
         # limitation, not something fixable from CI alone.
         if: github.event_name == 'push'
         run: |
