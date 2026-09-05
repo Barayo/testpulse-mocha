@@ -4,8 +4,22 @@ import { promisify } from 'util';
 
 const execFileAsync = promisify(execFile);
 
+/**
+ * Resolves the installed mocha package's own CLI entry point via its
+ * declared `bin` field, rather than a hardcoded path -- mocha 9's `bin`
+ * is `./bin/mocha` (no extension), while mocha 10+'s is `./bin/mocha.js`,
+ * so a hardcoded `mocha/bin/mocha.js` path breaks under mocha 9 (found
+ * via the CI matrix, which tests both majors; this machine's locally
+ * installed mocha 11 masked the bug during local development).
+ */
 function resolveMochaBin(): string {
-  return require.resolve('mocha/bin/mocha.js');
+  const pkgPath = require.resolve('mocha/package.json');
+  const pkg = require(pkgPath) as { bin?: Record<string, string> | string };
+  const binRel = typeof pkg.bin === 'string' ? pkg.bin : pkg.bin?.mocha;
+  if (!binRel) {
+    throw new Error('Could not determine mocha CLI bin path from mocha/package.json');
+  }
+  return path.join(path.dirname(pkgPath), binRel);
 }
 
 export interface MochaRunResult {
