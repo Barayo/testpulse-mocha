@@ -100,6 +100,29 @@ describe('TestPulseReporter', () => {
     expect(readResultMarker()).toEqual({ present: true, marker: { failed: true } });
   });
 
+  it('a 207 response with default config suggests enabling failOnUnmatched', async () => {
+    mockedHttpClient.postImport.mockResolvedValue({
+      status: 207,
+      body: { matched: 0, unmatched: [{ caseKey: 'LOGIN-42' }] },
+    });
+    const { runner, reporter } = makeReporter();
+    runner.emit(EVENT_TEST_PASS, makeTest('a', { testpulse_case_key: 'LOGIN-42' }));
+    await runEnd(runner, reporter);
+    expect(logSpy).toHaveBeenCalledWith(expect.stringContaining('enable failOnUnmatched'));
+  });
+
+  it('a 207 response with failOnUnmatched already enabled does not suggest enabling it', async () => {
+    mockedHttpClient.postImport.mockResolvedValue({
+      status: 207,
+      body: { matched: 0, unmatched: [{ caseKey: 'LOGIN-42' }] },
+    });
+    const { runner, reporter } = makeReporter({ failOnUnmatched: true });
+    runner.emit(EVENT_TEST_PASS, makeTest('a', { testpulse_case_key: 'LOGIN-42' }));
+    await runEnd(runner, reporter);
+    const allLogs = logSpy.mock.calls.flat().join(' ');
+    expect(allLogs).not.toContain('enable failOnUnmatched');
+  });
+
   it('a network error writes failed:true regardless of failOnUnmatched', async () => {
     mockedHttpClient.postImport.mockRejectedValue(new Error('connection refused'));
     const { runner, reporter } = makeReporter();

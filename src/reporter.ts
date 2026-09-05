@@ -207,7 +207,11 @@ export class TestPulseReporter {
         }
         if (unmatched.length > 0) {
           // eslint-disable-next-line no-console
-          console.log('testpulse-mocha: enable failOnUnmatched to make this a hard failure');
+          console.log(
+            failOnUnmatched
+              ? 'testpulse-mocha: failing the build (failOnUnmatched is enabled)'
+              : 'testpulse-mocha: enable failOnUnmatched to make this a hard failure',
+          );
           writeResultMarker({ failed: failOnUnmatched });
         } else {
           writeResultMarker({ failed: false });
