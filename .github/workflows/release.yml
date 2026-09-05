@@ -1,0 +1,79 @@
+name: Release
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  id-token: write
+
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    if: github.repository == 'Barayo/testpulse-mocha'
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          registry-url: https://registry.npmjs.org
+      - name: Upgrade npm (trusted publishing/OIDC needs npm >= 11.5.1; Node 20's bundled npm is older)
+        run: npm install -g npm@11
+      - run: npm ci
+      - run: npm run build
+      - name: Capture package.json version before semantic-release
+        if: github.event_name == 'push'
+        run: echo "PRE_VERSION=$(node -p "require('./package.json').version")" >> "$GITHUB_ENV"
+      - name: Semantic release (version, changelog, tag, GitHub release -- npm publish happens as its own step below)
+        if: github.event_name == 'push'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: npx semantic-release
+      - name: Publish to npm via OIDC trusted publishing, if semantic-release bumped the version
+        # A plain `run:` step, deliberately NOT invoked through
+        # @semantic-release/exec's publishCmd -- that spawns npm as a
+        # subprocess-of-a-subprocess via execa with semantic-release's own
+        # constructed env, which (confirmed by a real failed run on
+        # testpulse-jest) doesn't carry whatever npm's OIDC detection
+        # needs, even though the exact same `npm publish` command run
+        # directly by the runner (this step, and the workflow_dispatch
+        # step below) succeeds. Gated on the version actually having
+        # changed, since this step always runs on push and would
+        # otherwise attempt (and harmlessly fail) a republish of the
+        # current version on every push with no releasable commits.
+        #
+        # NOTE: the very first publish of a brand-new npm package cannot
+        # be bootstrapped via OIDC trusted publishing at all -- npm's
+        # trusted-publishing configuration is set up on an EXISTING
+        # package's settings page, so it requires the package to already
+        # exist on the registry. The first release of this package needs
+        # one manual `npm publish` (with a maintainer's own npm
+        # credentials) before this OIDC-based step can take over for
+        # every release after that. This is a real, confirmed npm
+        # limitation, not something fixable from CI alone.
+        if: github.event_name == 'push'
+        run: |
+          POST_VERSION=$(node -p "require('./package.json').version")
+          if [ "$PRE_VERSION" != "$POST_VERSION" ]; then
+            npm publish
+          else
+            echo "No version change ($PRE_VERSION) -- nothing to publish."
+          fi
+      - name: Publish already-tagged version (manual recovery)
+        # semantic-release's git-tag push happens before the publish step
+        # even attempts npm, so a failed publish can still leave a real
+        # tag with nothing actually published for it. A manual dispatch
+        # here just publishes whatever's currently checked out, via the
+        # same OIDC trusted-publishing flow (no NPM_TOKEN secret exists
+        # to fall back to).
+        if: github.event_name == 'workflow_dispatch'
+        run: npm publish

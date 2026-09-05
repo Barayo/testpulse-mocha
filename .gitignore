@@ -1,0 +1,9 @@
+node_modules/
+dist/
+.testpulse/
+coverage/
+*.log
+*.tgz
+test/fixtures/**/*.xml
+test/fixtures/**/.testpulse/
+test/fixtures/**/node_modules/

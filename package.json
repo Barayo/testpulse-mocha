@@ -1,0 +1,52 @@
+{
+  "name": "testpulse-mocha",
+  "version": "0.1.0",
+  "description": "Mocha reporter + check CLI for reporting test results into TestPulse",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Barayo/testpulse-mocha.git"
+  },
+  "homepage": "https://github.com/Barayo/testpulse-mocha#readme",
+  "bugs": "https://github.com/Barayo/testpulse-mocha/issues",
+  "keywords": [
+    "mocha",
+    "mocha-reporter",
+    "testpulse",
+    "junit",
+    "test-management"
+  ],
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "bin": {
+    "testpulse-mocha": "dist/bin/check.js"
+  },
+  "files": [
+    "dist"
+  ],
+  "engines": {
+    "node": ">=18"
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "test": "jest --selectProjects unit",
+    "test:e2e": "npm run build && jest --selectProjects e2e",
+    "test:all": "npm run build && jest",
+    "lint": "tsc --noEmit",
+    "prepublishOnly": "npm run build"
+  },
+  "peerDependencies": {
+    "mocha": ">=9.0.0"
+  },
+  "devDependencies": {
+    "@semantic-release/exec": "^6.0.3",
+    "@semantic-release/git": "^10.0.1",
+    "@types/jest": "^29.5.14",
+    "@types/node": "^20.17.9",
+    "jest": "^29.7.0",
+    "mocha": "^10.7.3",
+    "semantic-release": "^24.2.0",
+    "ts-jest": "^29.2.5",
+    "typescript": "^5.7.2"
+  }
+}
