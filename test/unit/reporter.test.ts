@@ -89,7 +89,7 @@ describe('TestPulseReporter', () => {
     expect(readResultMarker()).toEqual({ present: true, marker: { failed: false } });
   });
 
-  it('a 207 response with failOnUnmatched enabled writes failed:true', async () => {
+  it('a 207 response with failOnUnmatched enabled writes failed:true with the unmatched keys in the reason', async () => {
     mockedHttpClient.postImport.mockResolvedValue({
       status: 207,
       body: { matched: 0, unmatched: [{ caseKey: 'LOGIN-42' }] },
@@ -97,7 +97,10 @@ describe('TestPulseReporter', () => {
     const { runner, reporter } = makeReporter({ failOnUnmatched: true });
     runner.emit(EVENT_TEST_PASS, makeTest('a', { testpulse_case_key: 'LOGIN-42' }));
     await runEnd(runner, reporter);
-    expect(readResultMarker()).toEqual({ present: true, marker: { failed: true } });
+    expect(readResultMarker()).toEqual({
+      present: true,
+      marker: { failed: true, reason: expect.stringContaining('LOGIN-42') },
+    });
   });
 
   it('a 207 response with default config suggests enabling failOnUnmatched', async () => {
@@ -123,20 +126,26 @@ describe('TestPulseReporter', () => {
     expect(allLogs).not.toContain('enable failOnUnmatched');
   });
 
-  it('a network error writes failed:true regardless of failOnUnmatched', async () => {
+  it('a network error writes failed:true with the real error as reason, not a generic fallback', async () => {
     mockedHttpClient.postImport.mockRejectedValue(new Error('connection refused'));
     const { runner, reporter } = makeReporter();
     runner.emit(EVENT_TEST_PASS, makeTest('a', { testpulse_case_key: 'LOGIN-42' }));
     await runEnd(runner, reporter);
-    expect(readResultMarker()).toEqual({ present: true, marker: { failed: true } });
+    expect(readResultMarker()).toEqual({
+      present: true,
+      marker: { failed: true, reason: expect.stringContaining('connection refused') },
+    });
   });
 
-  it('a 5xx response writes failed:true', async () => {
+  it('a 5xx response writes failed:true with the status in the reason, not a generic fallback', async () => {
     mockedHttpClient.postImport.mockResolvedValue({ status: 500, body: { error: 'boom' } });
     const { runner, reporter } = makeReporter();
     runner.emit(EVENT_TEST_PASS, makeTest('a', { testpulse_case_key: 'LOGIN-42' }));
     await runEnd(runner, reporter);
-    expect(readResultMarker()).toEqual({ present: true, marker: { failed: true } });
+    expect(readResultMarker()).toEqual({
+      present: true,
+      marker: { failed: true, reason: expect.stringContaining('500') },
+    });
   });
 
   it('a genuinely failing test still produces a failure element and still submits', async () => {
@@ -178,12 +187,15 @@ describe('TestPulseReporter', () => {
     expect(logSpy).toHaveBeenCalledWith(expect.stringContaining('would match: LOGIN-42'));
   });
 
-  it('a dry-run fetch failure writes failed:true', async () => {
+  it('a dry-run fetch failure writes failed:true with the real error as reason', async () => {
     mockedHttpClient.getCases.mockRejectedValue(new Error('connection refused'));
     const { runner, reporter } = makeReporter({ dryRun: true });
     runner.emit(EVENT_TEST_PASS, makeTest('a', { testpulse_case_key: 'LOGIN-42' }));
     await runEnd(runner, reporter);
-    expect(readResultMarker()).toEqual({ present: true, marker: { failed: true } });
+    expect(readResultMarker()).toEqual({
+      present: true,
+      marker: { failed: true, reason: expect.stringContaining('connection refused') },
+    });
   });
 
   it('prunes .testpulse/attachments after a successful (201) submission', async () => {

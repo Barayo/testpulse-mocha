@@ -161,9 +161,17 @@ export class TestPulseReporter {
       }
       writeResultMarker({ failed: false });
     } catch (e) {
+      const reason = `dry-run fetch failed: ${extractError(e)} (url: ${redactUrl(url)})`;
       // eslint-disable-next-line no-console
-      console.error(`testpulse-mocha: dry-run fetch failed: ${extractError(e)} (url: ${redactUrl(url)})`);
-      writeResultMarker({ failed: true });
+      console.error(`testpulse-mocha: ${reason}`);
+      // Threading the real reason through to the marker is what lets
+      // `check` -- the step actually inspected for "why did this fail"
+      // in the documented CI pattern -- report the true cause, instead
+      // of a generic fallback message that's actively misleading for
+      // every failure that isn't a missing-config skip. Found
+      // post-implementation (Paco, via the sibling testpulse-vitest
+      // plugin, where the identical bug was found and fixed first).
+      writeResultMarker({ failed: true, reason });
     }
   }
 
@@ -212,24 +220,29 @@ export class TestPulseReporter {
               ? 'testpulse-mocha: failing the build (failOnUnmatched is enabled)'
               : 'testpulse-mocha: enable failOnUnmatched to make this a hard failure',
           );
-          writeResultMarker({ failed: failOnUnmatched });
+          const reason = failOnUnmatched
+            ? `${unmatched.length} unmatched case key(s), failOnUnmatched is enabled: ${unmatched.map((u) => u.caseKey).join(', ')}`
+            : undefined;
+          writeResultMarker({ failed: failOnUnmatched, reason });
         } else {
           writeResultMarker({ failed: false });
         }
         clearAttachments(process.cwd());
       } else {
+        const reason = `submission failed: status ${result.status} (url: ${redactUrl(url)})`;
         // eslint-disable-next-line no-console
-        console.error(`testpulse-mocha: submission failed: status ${result.status} (url: ${redactUrl(url)})`);
-        writeResultMarker({ failed: true });
+        console.error(`testpulse-mocha: ${reason}`);
+        writeResultMarker({ failed: true, reason });
       }
     } catch (e) {
       // Only the extracted message and a credential-stripped URL are
       // logged -- never the raw caught error object, since most JS HTTP
       // clients' error objects carry the outgoing request's headers,
       // including Authorization.
+      const reason = `submission failed: ${extractError(e)} (url: ${redactUrl(url)})`;
       // eslint-disable-next-line no-console
-      console.error(`testpulse-mocha: submission failed: ${extractError(e)} (url: ${redactUrl(url)})`);
-      writeResultMarker({ failed: true });
+      console.error(`testpulse-mocha: ${reason}`);
+      writeResultMarker({ failed: true, reason });
     }
   }
 }
