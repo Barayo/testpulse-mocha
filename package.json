@@ -1,6 +1,6 @@
 {
   "name": "testpulse-mocha",
-  "version": "1.0.2",
+  "version": "1.0.3",
   "description": "Mocha reporter + check CLI for reporting test results into TestPulse",
   "license": "MIT",
   "repository": {
