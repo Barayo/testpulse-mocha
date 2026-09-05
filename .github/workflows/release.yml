@@ -62,7 +62,18 @@ jobs:
         # that doesn't exist yet, so there's no way to pre-register OIDC
         # trust before that first manual publish. This is a real npm
         # limitation, not something fixable from CI alone.
+        #
+        # TEMPORARY BOOTSTRAP: if an NPM_TOKEN repo secret is present,
+        # it's used as a classic auth token instead of OIDC, so CI (not
+        # a maintainer's own machine) performs this package's very first
+        # publish. Once that first publish succeeds, register GitHub
+        # Actions as this package's Trusted Publisher at
+        # npmjs.com/package/testpulse-mocha/access, delete the NPM_TOKEN
+        # secret, and remove this env block -- steady state is pure
+        # OIDC, matching testpulse-jest.
         if: github.event_name == 'push'
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
         run: |
           POST_VERSION=$(node -p "require('./package.json').version")
           if [ "$PRE_VERSION" != "$POST_VERSION" ]; then
@@ -75,7 +86,9 @@ jobs:
         # even attempts npm, so a failed publish can still leave a real
         # tag with nothing actually published for it. A manual dispatch
         # here just publishes whatever's currently checked out, via the
-        # same OIDC trusted-publishing flow (no NPM_TOKEN secret exists
-        # to fall back to).
+        # same OIDC trusted-publishing flow, or via NPM_TOKEN below
+        # while that temporary bootstrap secret still exists.
         if: github.event_name == 'workflow_dispatch'
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
         run: npm publish
